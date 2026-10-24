@@ -8,11 +8,7 @@ import YearDropdown from "./YearDropdown";
 import DomainMultiSelect from "./DomainMultiSelect";
 import WhyJoinTextarea from "./WhyJoinTextarea";
 
-/**
- * UI-only recruitment form prototype.
- * No data is sent, stored, or persisted anywhere.
- * The submit button triggers client-side field validation only.
- */
+/** Recruitment form. Validates client-side, then submits to /api/recruitment. */
 export default function RecruitmentForm() {
   const {
     formData,
@@ -26,6 +22,8 @@ export default function RecruitmentForm() {
     handleBlur,
     submitApplication,
     resetForm,
+    status,
+    submitError,
   } = useRecruitmentForm();
 
   return (
@@ -134,8 +132,13 @@ export default function RecruitmentForm() {
           {/* Action bar */}
           <div className="flex flex-col gap-4 border border-jlug-line bg-jlug-ink p-6 md:flex-row md:items-center md:justify-between">
             <p className="font-mono text-[0.7rem] uppercase tracking-wider text-jlug-gray-2">
-              <span className="text-jlug-accent">UI PROTOTYPE</span>{" "}
-              — No data is stored or transmitted.
+              {status === "success" ? (
+                <span className="text-jlug-accent">APPLICATION RECEIVED — WE&apos;LL BE IN TOUCH.</span>
+              ) : status === "error" ? (
+                <span className="text-red-400">{submitError}</span>
+              ) : (
+                "Review your details before submitting."
+              )}
             </p>
 
             <div className="flex flex-wrap items-center gap-4">
@@ -153,9 +156,10 @@ export default function RecruitmentForm() {
               <button
                 id="recruitment-submit-btn"
                 type="submit"
-                className="flex items-center gap-3 border border-jlug-accent bg-jlug-accent px-8 py-3.5 font-mono text-xs font-bold uppercase tracking-widest text-jlug-black transition-all hover:bg-jlug-white hover:border-jlug-white cursor-pointer shadow-[0_0_20px_rgba(183,243,74,0.2)]"
+                disabled={status === "submitting" || status === "success"}
+                className="disabled:opacity-50 flex items-center gap-3 border border-jlug-accent bg-jlug-accent px-8 py-3.5 font-mono text-xs font-bold uppercase tracking-widest text-jlug-black transition-all hover:bg-jlug-white hover:border-jlug-white cursor-pointer shadow-[0_0_20px_rgba(183,243,74,0.2)]"
               >
-                <span>SUBMIT APPLICATION</span>
+                <span>{status === "submitting" ? "SENDING..." : "SUBMIT APPLICATION"}</span>
                 <span>{"-->"}</span>
               </button>
             </div>

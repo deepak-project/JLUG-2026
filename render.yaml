@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: jlug-website
+    runtime: node
+    plan: starter # persistent disks need a paid plan; free tier loses submissions on every deploy/restart
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    numInstances: 1 # submissions live in a JSON file on one disk, so don't scale out
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: ADMIN_SECRET_KEY
+        generateValue: true # Render creates a random key; read it in Dashboard > Environment
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: jlug-data
+      mountPath: /var/data
+      sizeGB: 1

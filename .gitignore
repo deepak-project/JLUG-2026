@@ -40,3 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+
+# recruitment submissions (local JSON store)
+/.data/
+!.env.example

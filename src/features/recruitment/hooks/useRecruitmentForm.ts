@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { FormErrors, FormFieldKey, RecruitmentFormData } from "../types";
 import { INITIAL_FORM_DATA } from "../data/recruitmentOptions";
+import { validateField, validateForm } from "../validation";
 
 export function useRecruitmentForm() {
   const [formData, setFormData] = useState<RecruitmentFormData>(INITIAL_FORM_DATA);
@@ -14,63 +15,8 @@ export function useRecruitmentForm() {
     whyJoin: false,
   });
 
-  /** Validate a single field value and return an error message, or undefined. */
-  const validateField = useCallback(
-    (key: FormFieldKey, value: unknown): string | undefined => {
-      switch (key) {
-        case "fullName": {
-          const v = (value as string).trim();
-          if (!v) return "Name is required.";
-          if (v.length < 3) return "Name must be at least 3 characters.";
-          return undefined;
-        }
-        case "branch": {
-          if (!(value as string)) return "Please select your branch.";
-          return undefined;
-        }
-        case "year": {
-          if (!(value as string)) return "Please select your academic year.";
-          return undefined;
-        }
-        case "phone": {
-          const v = (value as string).replace(/[\s-]/g, "");
-          if (!v) return "Phone number is required.";
-          if (!/^[6-9]\d{9}$/.test(v)) return "Enter a valid 10-digit Indian phone number.";
-          return undefined;
-        }
-        case "email": {
-          const v = (value as string).trim();
-          if (!v) return "Email is required.";
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return "Enter a valid email address.";
-          return undefined;
-        }
-        case "domains": {
-          const arr = value as string[];
-          if (!arr || arr.length === 0) return "Select at least one domain.";
-          return undefined;
-        }
-        case "whyJoin": {
-          const v = (value as string).trim();
-          if (!v) return "Please tell us your motivation.";
-          if (v.length < 20) return `At least 20 characters needed (${v.length} so far).`;
-          return undefined;
-        }
-        default:
-          return undefined;
-      }
-    },
-    []
-  );
-
   /** Derived validation errors for every field. */
-  const errors = useMemo<FormErrors>(() => {
-    const errs: FormErrors = {};
-    (Object.keys(formData) as FormFieldKey[]).forEach((key) => {
-      const msg = validateField(key, formData[key]);
-      if (msg) errs[key] = msg;
-    });
-    return errs;
-  }, [formData, validateField]);
+  const errors = useMemo<FormErrors>(() => validateForm(formData), [formData]);
 
   const isValid = Object.keys(errors).length === 0;
 
@@ -85,7 +31,7 @@ export function useRecruitmentForm() {
     if (!validateField("domains", formData.domains)) n++;
     if (!validateField("whyJoin", formData.whyJoin)) n++;
     return n;
-  }, [formData, validateField]);
+  }, [formData]);
 
   // ─── Field handlers ───────────────────────────────────────────────────────
 
@@ -123,16 +69,13 @@ export function useRecruitmentForm() {
     setTouched((prev) => ({ ...prev, [field]: true }));
   }, []);
 
-  /**
-   * Submit handler — UI-only demo. No data leaves the browser.
-   * Marks all fields as touched so errors surface, then returns early
-   * if validation fails. No network request or storage is made.
-   */
-  const submitApplication = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [submitError, setSubmitError] = useState("");
 
-      // Surface errors for all fields
+  /** Validates, then POSTs to /api/recruitment. Errors surface inline. */
+  const submitApplication = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
       setTouched({
         fullName: true,
         branch: true,
@@ -142,16 +85,29 @@ export function useRecruitmentForm() {
         domains: true,
         whyJoin: true,
       });
+      if (!isValid || status === "submitting") return;
 
-      // If invalid, do nothing further — errors are shown inline
-      if (!isValid) return;
-
-      // Valid — intentionally do nothing (UI-only prototype, no backend)
+      setStatus("submitting");
+      setSubmitError("");
+      try {
+        const res = await fetch("/api/recruitment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Submission failed.");
+        setStatus("success");
+      } catch (err) {
+        setSubmitError(err instanceof Error ? err.message : "Submission failed.");
+        setStatus("error");
+      }
     },
-    [isValid]
+    [isValid, status, formData]
   );
 
   const resetForm = useCallback(() => {
+    setStatus("idle");
+    setSubmitError("");
     setFormData(INITIAL_FORM_DATA);
     setTouched({
       fullName: false,
@@ -177,5 +133,7 @@ export function useRecruitmentForm() {
     handleBlur,
     submitApplication,
     resetForm,
+    status,
+    submitError,
   };
 }
